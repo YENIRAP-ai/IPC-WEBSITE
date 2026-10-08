@@ -268,13 +268,19 @@
   }
 
   /* ── enquiry form ─────────────────────────────────────────────────────── */
-  /* Enquiries go to the mailbox by email: submitting opens the visitor's mail
-     client with every answer already written into the body. There is no file
-     upload, so nothing is lost on that path. Setting this to a form handler's
-     URL would switch to a background POST instead. */
-  var ENDPOINT = "";
-  /* Where the fallback email goes. Change this when the mailbox is live. */
+  /* Enquiries POST quietly in the background to a form service, which forwards
+     them to the mailbox below. Nothing is stored on this site and the visitor
+     needs no mail program of their own.
+     If that POST fails, or if ENDPOINT is blanked, the enquiry is handed to the
+     visitor's own mail client with every answer already written into the body —
+     so an enquiry that has been typed is never silently lost.
+     The access key that pairs this with the mailbox is a public identifier in
+     the form markup; see w3f_key in tools/data.py. */
+  var ENDPOINT = "https://api.web3forms.com/submit";
+  /* Where enquiries land, and what we show if sending ever fails. Both are
+     mirrored from data.py — change them there and here together. */
   var ENQUIRY_EMAIL = "info@industrialpackagingco.com";
+  var ENQUIRY_TEL = "+91 97115 55131";
 
   function initForm() {
     var form = document.getElementById("rfq");
@@ -308,6 +314,9 @@
       mark(pr, pm); if (pm) bad.push(pr);
       return bad;
     }
+    function subject() {
+      return "Specification enquiry — " + (g("f-company") || "website");
+    }
     function summary() {
       return ["Company: " + g("f-company"), "Contact: " + g("f-contact"),
         "Email: " + g("f-email"), "Phone: " + g("f-phone"), "",
@@ -328,27 +337,54 @@
         bad[0].focus();
         return;
       }
-      if (!ENDPOINT) {
-        location.href = "mailto:" + ENQUIRY_EMAIL + "?subject=" +
-          encodeURIComponent("Specification enquiry — " + g("f-company")) +
+      /* Hand the typed enquiry to the visitor's own mail client, fully filled
+         in. Used when there is no endpoint, and as the rescue path if the POST
+         fails — their work is still in the form, so nothing has to be retyped. */
+      function handoff() {
+        location.href = "mailto:" + ENQUIRY_EMAIL +
+          "?subject=" + encodeURIComponent(subject()) +
           "&body=" + encodeURIComponent(summary());
+      }
+      if (!ENDPOINT) {
+        handoff();
         status.className = "form__status ok";
         status.textContent = "Your email program should now be open with the enquiry filled in. " +
           "Press send, and we will reply to it. If nothing opened, email " + ENQUIRY_EMAIL +
-          " or call the number above.";
+          " or call " + ENQUIRY_TEL + ".";
         return;
       }
       go.disabled = true;
       status.textContent = "Sending…";
-      fetch(ENDPOINT, { method: "POST", body: new FormData(form) })
-        .then(function (r) { if (!r.ok) throw new Error(r.status); form.reset();
+      /* The text honeypot belongs to this page only — drop it so it never turns
+         up in the enquiry email. Everything else goes under its own field name,
+         plus a subject line and one readable block so the email reads straight
+         down without hunting through a table. */
+      var load = new FormData(form);
+      load.delete("website");
+      load.set("subject", subject());
+      load.set("from_name", g("f-company") || "Website enquiry");
+      load.set("message", summary());
+      fetch(ENDPOINT, { method: "POST", body: load })
+        /* A 200 is not on its own a delivery: the service answers with JSON
+           saying whether it accepted the enquiry, so read that and not just the
+           status code. If the body will not parse, fall back to the code. */
+        .then(function (r) {
+          return r.json().catch(function () { return { success: r.ok }; });
+        })
+        .then(function (d) {
+          if (!d || !d.success) throw new Error("not accepted");
+          form.reset();
           status.className = "form__status ok";
           status.textContent = "Enquiry received. You will get a written reply, and a call if the " +
-            "spec needs a question answered first."; })
+            "spec needs a question answered first.";
+        })
         .catch(function () {
           status.className = "form__status";
-          status.textContent = "That did not send. Please email " + ENQUIRY_EMAIL + " or call " +
-            "+91 93114 44625 instead."; })
+          status.textContent = "Sending did not go through, so we have opened this enquiry in your " +
+            "own email instead — please press send there. If nothing opened, email " +
+            ENQUIRY_EMAIL + " or call " + ENQUIRY_TEL + ".";
+          handoff();
+        })
         .then(function () { go.disabled = false; });
     });
     form.addEventListener("input", function (e) {

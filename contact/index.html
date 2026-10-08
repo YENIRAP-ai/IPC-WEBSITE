@@ -48,7 +48,7 @@
     <ul><li><a href="/machinery/">Machinery</a></li><li><a href="/quality/">Quality</a></li><li><a href="/about/">About</a></li><li><a href="/contact/">Contact</a></li></ul>
     <a class="btn btn--fill" href="/contact/#enquiry">Request a quote <span aria-hidden="true">&rarr;</span></a>
   </div>
-</header><main id="main" tabindex="-1"><div class="wrap"><p class="crumb"><a href="/">Home</a><i aria-hidden="true">/</i>Contact</p></div>
+</header><main id="main" tabindex="-1"><div class="wrap crumb-row"><p class="crumb"><a href="/">Home</a><i aria-hidden="true">/</i>Contact</p></div>
   <section class="phead" data-tone="bone">
     <div class="wrap g12">
       <div class="c1-7">
@@ -70,11 +70,18 @@
             <a href="tel:+919711555131">+91 97115 55131</a> and we will pick it up the same way.</p>
         </noscript>
         <form class="form" id="rfq" novalidate>
-          <!-- Bot trap. A real visitor never sees this, so anything that fills
-               it in is not a real visitor. Checked in main.js before sending. -->
+          <!-- Public form identifier, not a secret: it has to be in the page
+               for the form to work and it only delivers to our own mailbox.
+               Source of truth is w3f_key in data.py. -->
+          <input type="hidden" name="access_key" value="6100d051-76fd-4dac-89a8-82cb66153b88">
+          <!-- Two bot traps. A real visitor never sees either, so anything that
+               fills one in is not a real visitor. The text box is checked in
+               main.js before sending; the checkbox is checked by the form
+               service at its end and the submission is dropped there. -->
           <div class="hp" aria-hidden="true">
             <label for="f-web">Website</label>
             <input type="text" id="f-web" name="website" tabindex="-1" autocomplete="off">
+            <input type="checkbox" name="botcheck" tabindex="-1" style="display:none">
           </div>
           <div class="field"><label for="f-company">Company <span class="req">*</span></label>
             <input id="f-company" name="company" type="text" autocomplete="organization" required>
